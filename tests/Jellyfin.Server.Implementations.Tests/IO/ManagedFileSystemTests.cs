@@ -116,6 +116,36 @@ public class ManagedFileSystemTests
         Assert.False(metadata.Exists);
     }
 
+    [SkippableFact]
+    public void GetLastWriteTimeUtc_Symlink_ReturnsTargetTime()
+    {
+        Skip.If(OperatingSystem.IsWindows());
+
+        var tempDir = Directory.CreateTempSubdirectory();
+        try
+        {
+            var targetFile = Path.Join(tempDir.FullName, "target.txt");
+            var symlinkFile = Path.Join(tempDir.FullName, "symlink.txt");
+
+            File.WriteAllText(targetFile, "original");
+            File.CreateSymbolicLink(symlinkFile, targetFile);
+
+            System.Threading.Thread.Sleep(1100);
+
+            File.WriteAllText(targetFile, "updated");
+
+            var expectedTime = File.GetLastWriteTimeUtc(targetFile);
+            var symlinkFileInfo = new FileInfo(symlinkFile);
+            var actualTime = _sut.GetLastWriteTimeUtc(symlinkFileInfo);
+
+            Assert.Equal(expectedTime, actualTime);
+        }
+        finally
+        {
+            tempDir.Delete(true);
+        }
+    }
+
     [SuppressMessage("Naming Rules", "SA1300:ElementMustBeginWithUpperCaseLetter", Justification = "Have to")]
     [DllImport("libc", SetLastError = true, CharSet = CharSet.Ansi)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.UserDirectories)]

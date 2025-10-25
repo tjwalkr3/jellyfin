@@ -383,6 +383,16 @@ namespace Emby.Server.Implementations.IO
             // This could throw an error on some file systems that have dates out of range
             try
             {
+                // If the file is a symlink, get the LastWriteTime of the file it's pointing to
+                if (info is FileInfo fileInfo && (fileInfo.Attributes & FileAttributes.ReparsePoint) == FileAttributes.ReparsePoint)
+                {
+                    var target = fileInfo.ResolveLinkTarget(returnFinalTarget: true);
+                    if (target is not null)
+                    {
+                        return target.LastWriteTimeUtc;
+                    }
+                }
+
                 return info.LastWriteTimeUtc;
             }
             catch (Exception ex)
