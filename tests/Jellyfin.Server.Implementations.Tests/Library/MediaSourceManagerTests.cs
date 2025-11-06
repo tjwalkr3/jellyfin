@@ -1,9 +1,19 @@
+using System;
+using System.Linq;
+using System.Net;
+using System.Threading;
+using System.Threading.Tasks;
 using AutoFixture;
 using AutoFixture.AutoMoq;
 using Emby.Server.Implementations.IO;
 using Emby.Server.Implementations.Library;
+using MediaBrowser.Controller;
+using MediaBrowser.Controller.Library;
+using MediaBrowser.Controller.LiveTv;
+using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.MediaInfo;
+using Moq;
 using Xunit;
 
 namespace Jellyfin.Server.Implementations.Tests.Library
@@ -28,5 +38,36 @@ namespace Jellyfin.Server.Implementations.Tests.Library
         [InlineData("rtsp://media.example.com:554/twister/audiotrack", MediaProtocol.Rtsp)]
         public void GetPathProtocol_ValidArg_Correct(string path, MediaProtocol expected)
             => Assert.Equal(expected, _mediaSourceManager.GetPathProtocol(path));
+
+        [Fact]
+        public async Task GetRecordingStreamMediaSources_ShouldNotUseInternalIpAddress()
+        {
+            var fixture = new Fixture().Customize(new AutoMoqCustomization { ConfigureMembers = true });
+
+            var mockAppHost = fixture.Freeze<Mock<IServerApplicationHost>>();
+            mockAppHost
+                .Setup(x => x.GetApiUrlForLocalAccess(It.IsAny<IPAddress>(), It.IsAny<bool>()))
+                .Returns("http://172.19.0.3:8096");
+
+            fixture.Inject<IFileSystem>(fixture.Create<ManagedFileSystem>());
+            var mediaSourceManager = fixture.Create<MediaSourceManager>();
+
+            var recordingInfo = new ActiveRecordingInfo
+            {
+                Id = "test-recording-123",
+                Path = "/cache/recording.ts"
+            };
+
+            var mediaSources = await mediaSourceManager.GetRecordingStreamMediaSources(
+                recordingInfo,
+                CancellationToken.None);
+
+            var mediaSource = mediaSources.FirstOrDefault();
+            Assert.NotNull(mediaSource);
+            Assert.NotNull(mediaSource.EncoderPath);
+            Assert.DoesNotContain("172.19.", mediaSource.EncoderPath, StringComparison.Ordinal);
+            Assert.DoesNotContain("127.0.0.1", mediaSource.EncoderPath, StringComparison.Ordinal);
+            Assert.DoesNotContain("localhost", mediaSource.EncoderPath, StringComparison.OrdinalIgnoreCase);
+        }
     }
 }
