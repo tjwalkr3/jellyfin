@@ -45,9 +45,16 @@ namespace Jellyfin.Server.Implementations.Tests.Library
             var fixture = new Fixture().Customize(new AutoMoqCustomization { ConfigureMembers = true });
 
             var mockAppHost = fixture.Freeze<Mock<IServerApplicationHost>>();
+
+            // Mock GetApiUrlForLocalAccess to return internal IP (the bug behavior)
             mockAppHost
                 .Setup(x => x.GetApiUrlForLocalAccess(It.IsAny<IPAddress>(), It.IsAny<bool>()))
                 .Returns("http://172.19.0.3:8096");
+
+            // Mock GetSmartApiUrl to return public URL (the correct behavior)
+            mockAppHost
+                .Setup(x => x.GetSmartApiUrl(It.IsAny<IPAddress>()))
+                .Returns("https://mydomain.com");
 
             fixture.Inject<IFileSystem>(fixture.Create<ManagedFileSystem>());
             var mediaSourceManager = fixture.Create<MediaSourceManager>();
@@ -65,6 +72,9 @@ namespace Jellyfin.Server.Implementations.Tests.Library
             var mediaSource = mediaSources.FirstOrDefault();
             Assert.NotNull(mediaSource);
             Assert.NotNull(mediaSource.EncoderPath);
+
+            // The code should use GetSmartApiUrl which returns the public URL,
+            // NOT GetApiUrlForLocalAccess which returns the internal IP
             Assert.DoesNotContain("172.19.", mediaSource.EncoderPath, StringComparison.Ordinal);
             Assert.DoesNotContain("127.0.0.1", mediaSource.EncoderPath, StringComparison.Ordinal);
             Assert.DoesNotContain("localhost", mediaSource.EncoderPath, StringComparison.OrdinalIgnoreCase);
