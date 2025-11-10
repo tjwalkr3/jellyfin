@@ -78,6 +78,7 @@ namespace Jellyfin.Server.Implementations.Tests.Library
             Assert.DoesNotContain("172.19.", mediaSource.EncoderPath, StringComparison.Ordinal);
             Assert.DoesNotContain("127.0.0.1", mediaSource.EncoderPath, StringComparison.Ordinal);
             Assert.DoesNotContain("localhost", mediaSource.EncoderPath, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("https://mydomain.com", mediaSource.EncoderPath, StringComparison.Ordinal);
         }
     }
 }
